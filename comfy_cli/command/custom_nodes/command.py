@@ -3,6 +3,7 @@ import os
 import pathlib
 import platform
 import shutil
+import zipfile
 import subprocess
 import sys
 import uuid
@@ -1389,6 +1390,7 @@ def registry_install(
         )
         if not confirm:
             return
+    pre_existing = node_specific_path.exists()
     node_specific_path.mkdir(parents=True, exist_ok=True)  # Create the directory if it doesn't exist
 
     local_filename = node_specific_path / f"{node_id}-{node_version.version}.zip"
@@ -1402,7 +1404,23 @@ def registry_install(
 
     # Extract the downloaded archive to the custom_node directory on the workspace.
     logging.debug(f"Start extracting the node {node_id} version {node_version.version} to {custom_nodes_path}")
-    extract_package_as_zip(local_filename, node_specific_path)
+    try:
+        extract_package_as_zip(local_filename, node_specific_path)
+    except zipfile.BadZipFile:
+        # The archive is unusable (proxy answered 200 with an error page, or a
+        # truncated download). Report it and keep the archive for inspection
+        # instead of running install scripts on an empty directory, reporting
+        # success and deleting the only copy of the artifact. A directory that
+        # existed before the attempt keeps its contents; a fresh one is removed.
+        logging.error(f"Downloaded archive for node {node_id} is not a valid zip file.")
+        if not pre_existing:
+            shutil.rmtree(node_specific_path, ignore_errors=True)
+        get_renderer().error(
+            code="registry_install_failed",
+            message=f"The downloaded archive for custom node {node_id} is not a valid zip file.",
+            details={"node_id": node_id, "archive": str(local_filename)},
+        )
+        raise typer.Exit(code=1)
 
     # TODO: temoporary solution to run requirement.txt and install script
     execute_install_script(node_specific_path)

@@ -572,3 +572,22 @@ def test_cache_dir_survives_unresolvable_home(monkeypatch):
     raise."""
     monkeypatch.setenv("COMFY_CACHE_DIR", "~nosuchuser1234/cache")
     cache_dir()
+
+
+def test_extract_package_as_zip_raises_on_garbage(tmp_path):
+    """The registry-install flow needs the failure, not a printed warning it
+    cannot see: a 200 response with an error page used to extract nothing,
+    run install scripts on the empty dir and report success."""
+    archive = tmp_path / "node.zip"
+    archive.write_text("<html>gateway timeout</html>")
+    with pytest.raises(zipfile.BadZipFile):
+        file_utils.extract_package_as_zip(archive, tmp_path / "dest")
+
+
+def test_extract_package_as_zip_roundtrip(tmp_path):
+    archive = tmp_path / "node.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("node/__init__.py", "x = 1")
+    dest = tmp_path / "dest"
+    file_utils.extract_package_as_zip(archive, dest)
+    assert (dest / "node" / "__init__.py").read_text() == "x = 1"

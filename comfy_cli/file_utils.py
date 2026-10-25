@@ -1101,9 +1101,12 @@ def upload_file_to_signed_url(signed_url: str, file_path: str):
 
 
 def extract_package_as_zip(file_path: pathlib.Path, extract_path: pathlib.Path):
-    try:
-        with zipfile.ZipFile(file_path, "r") as zip_ref:
-            zip_ref.extractall(extract_path)
-        print(f"Extracted zip file to {extract_path}")
-    except zipfile.BadZipFile:
-        print("File is not a zip or is corrupted.")
+    """Extract ``file_path`` into ``extract_path``.
+
+    Raises zipfile.BadZipFile for an unusable archive — the caller decides
+    what a failed extraction means (earlier this printed and returned, and
+    the registry-install flow went on to run install scripts on whatever
+    had (not) been extracted and report success)."""
+    with zipfile.ZipFile(file_path, "r") as zip_ref:
+        zip_ref.extractall(extract_path)
+    print(f"Extracted zip file to {extract_path}")
