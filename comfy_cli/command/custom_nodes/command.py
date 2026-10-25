@@ -858,7 +858,13 @@ def update(
 
     execute_cm_cli(["update"] + nodes, channel=channel, uv_compile=_resolve_uv_compile(uv_compile), mode=mode)
 
-    update_node_id_cache()
+    try:
+        update_node_id_cache()
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+        # Best-effort, like the install and cmdline.py callers: the nodes are
+        # already updated, a stale autocomplete cache must not turn that into
+        # a crash agents would retry.
+        print(f"[yellow]Failed to update node id cache: {e}[/yellow]")
 
 
 @app.command(help="Disable custom nodes")

@@ -400,6 +400,23 @@ def test_update_calls_update_node_id_cache():
         mock_cache.assert_called_once()
 
 
+def test_update_survives_node_id_cache_failure():
+    """The cache refresh is best-effort (same as the install and cmdline.py
+    callers): an old Manager without export-custom-node-ids exits 2 and used
+    to crash the command AFTER the nodes were already updated, so agents
+    retried a finished update."""
+    with (
+        patch("comfy_cli.command.custom_nodes.command.execute_cm_cli"),
+        patch(
+            "comfy_cli.command.custom_nodes.command.update_node_id_cache",
+            side_effect=subprocess.CalledProcessError(2, "cm_cli"),
+        ),
+    ):
+        result = runner.invoke(app, ["update", "test-node"])
+        assert result.exit_code == 0
+        assert "node id cache" in result.output
+
+
 def test_uninstall_calls_execute():
     with patch("comfy_cli.command.custom_nodes.command.execute_cm_cli") as mock_execute:
         result = runner.invoke(app, ["uninstall", "test-node"])
